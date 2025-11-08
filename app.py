@@ -13,7 +13,6 @@ HEADERS = {
                   "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 }
 
-# ===== Caching =====
 cached_data = None
 last_update = None
 UPDATE_INTERVAL = timedelta(minutes=5)
@@ -33,9 +32,12 @@ def clean_name(txt: str) -> str:
     return txt.strip(" -–—: ")
 
 def extract_today_matches():
-    res = requests.get(URL, headers=HEADERS, timeout=20)
-    res.raise_for_status()
-    soup = BeautifulSoup(res.text, "html.parser")
+    try:
+        res = requests.get(URL, headers=HEADERS, timeout=20)
+        res.raise_for_status()
+        soup = BeautifulSoup(res.text, "html.parser")
+    except:
+        return []
 
     results = []
     seen = set()
@@ -90,8 +92,8 @@ def extract_today_matches():
                     "league": league_title,
                     "home": home,
                     "away": away,
-                    "status": status,
                     "time": time_,
+                    "status": status,
                     "logohome": logo_home,
                     "logoaway": logo_away
                 })
@@ -102,26 +104,18 @@ def get_cached_matches():
     global cached_data, last_update
     now = datetime.now()
     if cached_data is None or last_update is None or now - last_update > UPDATE_INTERVAL:
-        try:
-            cached_data = extract_today_matches()
-            last_update = now
-            print(f"✅ Data updated at {now}")
-        except Exception as e:
-            print(f"❌ Failed to update data: {e}")
-            if cached_data is None:
-                cached_data = []
+        cached_data = extract_today_matches()
+        last_update = now
+    # إذا لم توجد مباريات اليوم، نرجع عنصر فارغ
+    if not cached_data:
+        return [{"league":"","home":"","away":"","time":"","status":"","logohome":"","logoaway":""}]
     return cached_data
 
 @app.route("/api/abwjdan", methods=["GET"])
 def api_matches():
     matches = get_cached_matches()
-    return jsonify({
-        "success": True,
-        "date": datetime.now().strftime("%Y-%m-%d"),
-        "count": len(matches),
-        "matches": matches
-    })
+    return jsonify(matches)
 
 if __name__ == "__main__":
     app.run(debug=True)
-          
+        
